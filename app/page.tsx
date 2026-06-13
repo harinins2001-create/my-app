@@ -40,7 +40,7 @@ export default function IrcslDashboard() {
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: any) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
