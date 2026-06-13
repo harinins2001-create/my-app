@@ -1,65 +1,213 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { Trash2, Edit, Eye, Plus } from "lucide-react";
+
+const API_URL = "https://ircsl-tracking-production.up.railway.app/api/ircsl";
+
+export default function IrcslDashboard() {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modals States
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [currentRecord, setCurrentRecord] = useState(null); // View හෝ Edit කරන්න ගන්නා record එක
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // Form Fields State
+  const [formData, setFormData] = useState({
+    ircslDescription: "",
+    responsiblePerson: "",
+    sentDateToResponsiblePerson: "",
+    dueDate: "",
+    sentDateToIrcsl: "",
+  });
+
+  useEffect(() => {
+    fetchRecords();
+  }, []);
+
+  const fetchRecords = async () => {
+    try {
+      const res = await axios.get(API_URL);
+      setRecords(res.data);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Add Button Click කරද්දී Form එක හිස් කරන්න
+  const openAddModal = () => {
+    setIsEditMode(false);
+    setFormData({
+      ircslDescription: "",
+      responsiblePerson: "",
+      sentDateToResponsiblePerson: "",
+      dueDate: "",
+      sentDateToIrcsl: "",
+    });
+    setIsFormModalOpen(true);
+  };
+
+  // Edit Button Click එක
+  const openEditModal = (record) => {
+    setIsEditMode(true);
+    setCurrentRecord(record);
+    setFormData({
+      ircslDescription: record.ircslDescription,
+      responsiblePerson: record.responsiblePerson,
+      sentDateToResponsiblePerson: record.sentDateToResponsiblePerson || "",
+      dueDate: record.dueDate || "",
+      sentDateToIrcsl: record.sentDateToIrcsl || "",
+    });
+    setIsFormModalOpen(true);
+  };
+
+  // View Button Click එක
+  const openViewModal = (record) => {
+    setCurrentRecord(record);
+    setIsViewModalOpen(true);
+  };
+
+  // Submit (Save / Update) Logic
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (isEditMode) {
+        await axios.put(`${API_URL}/${currentRecord.id}`, formData);
+      } else {
+        await axios.post(API_URL, formData);
+      }
+      setIsFormModalOpen(false);
+      fetchRecords();
+    } catch (err) {
+      alert("Error saving record!");
+    }
+  };
+
+  // Delete Logic (Popup Confirm එකත් එක්ක)
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this record?")) {
+      try {
+        await axios.delete(`${API_URL}/${id}`);
+        fetchRecords();
+      } catch (err) {
+        alert("Error deleting record!");
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="container mx-auto p-6 bg-gray-50 min-h-screen text-gray-800">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold border-b-4 border-blue-600 pb-2">IRCSL Checking Dashboard</h1>
+        <button
+          onClick={openAddModal}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+        >
+          <Plus size={18} /> Add New Record
+        </button>
+      </div>
+
+      {/* DATA TABLE */}
+      <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-100 border-b border-gray-200">
+              <th className="p-4 font-semibold text-gray-700">Description</th>
+              <th className="p-4 font-semibold text-gray-700">Responsible Person</th>
+              <th className="p-4 font-semibold text-gray-700">Sent to Resp. Person</th>
+              <th className="p-4 font-semibold text-gray-700">Due Date</th>
+              <th className="p-4 font-semibold text-gray-700">Sent to IRCSL</th>
+              <th className="p-4 font-semibold text-center text-gray-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="6" className="text-center p-4">Loading records...</td></tr>
+            ) : records.length === 0 ? (
+              <tr><td colSpan="6" className="text-center p-4 text-gray-500">No records found.</td></tr>
+            ) : (
+              records.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="p-4 font-medium">{row.ircslDescription}</td>
+                  <td className="p-4">{row.responsiblePerson}</td>
+                  <td className="p-4">{row.sentDateToResponsiblePerson || "N/A"}</td>
+                  <td className="p-4 text-red-600 font-semibold">{row.dueDate || "N/A"}</td>
+                  <td className="p-4">{row.sentDateToIrcsl || "N/A"}</td>
+                  <td className="p-4 flex justify-center gap-2">
+                    <button onClick={() => openViewModal(row)} className="p-2 text-green-600 hover:bg-green-50 rounded" title="View"><Eye size={18} /></button>
+                    <button onClick={() => openEditModal(row)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Edit"><Edit size={18} /></button>
+                    <button onClick={() => handleDelete(row.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Delete"><Trash2 size={18} /></button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 📝 ADD / EDIT MODAL */}
+      {isFormModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <h2 className="text-xl font-bold mb-4">{isEditMode ? "Update Record" : "Add IRCSL Record"}</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">IRCSL Description</label>
+                <textarea name="ircslDescription" value={formData.ircslDescription} onChange={handleInputChange} className="w-full border p-2 rounded" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Responsible Person</label>
+                <input type="text" name="responsiblePerson" value={formData.responsiblePerson} onChange={handleInputChange} className="w-full border p-2 rounded" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Sent Date to Resp. Person</label>
+                <input type="date" name="sentDateToResponsiblePerson" value={formData.sentDateToResponsiblePerson} onChange={handleInputChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Due Date</label>
+                <input type="date" name="dueDate" value={formData.dueDate} onChange={handleInputChange} className="w-full border p-2 rounded" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Sent Date to IRCSL</label>
+                <input type="date" name="sentDateToIrcsl" value={formData.sentDateToIrcsl} onChange={handleInputChange} className="w-full border p-2 rounded" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setIsFormModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">{isEditMode ? "Update" : "Save"}</button>
+              </div>
+            </form>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {/* 🔍 VIEW DETAILS MODAL */}
+      {isViewModalOpen && currentRecord && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-green-700">IRCSL Record Details</h2>
+            <div className="space-y-3 border-y py-3 text-sm">
+              <p><strong>Description:</strong> {currentRecord.ircslDescription}</p>
+              <p><strong>Responsible Person:</strong> {currentRecord.responsiblePerson}</p>
+              <p><strong>Sent Date to Responsible Person:</strong> {currentRecord.sentDateToResponsiblePerson || "Not Sent Yet"}</p>
+              <p><strong>Due Date:</strong> <span className="text-red-600 font-bold">{currentRecord.dueDate}</span></p>
+              <p><strong>Sent Date to IRCSL:</strong> {currentRecord.sentDateToIrcsl || "Not Sent Yet"}</p>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setIsViewModalOpen(false)} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Close</button>
+            </div>
+          </div>
         </div>
-      </main>
+      )}
     </div>
   );
 }
